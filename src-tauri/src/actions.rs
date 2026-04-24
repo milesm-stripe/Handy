@@ -642,6 +642,13 @@ impl ShortcutAction for TranscribeAction {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }
                             }
+                            let _ = ah.emit(
+                                "recording-error",
+                                RecordingErrorEvent {
+                                    error_type: "transcription_failed".to_string(),
+                                    detail: Some(err.to_string()),
+                                },
+                            );
                             utils::hide_recording_overlay(&ah);
                             change_tray_icon(&ah, TrayIconState::Idle);
                         }
