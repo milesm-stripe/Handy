@@ -15,6 +15,7 @@ import { PostProcessingToggle } from "../PostProcessingToggle";
 import { AppendTrailingSpace } from "../AppendTrailingSpace";
 import { HistoryLimit } from "../HistoryLimit";
 import { RecordingRetentionPeriodSelector } from "../RecordingRetentionPeriod";
+import { MaxRecordingDurationSelector } from "../MaxRecordingDuration";
 import { ExperimentalToggle } from "../ExperimentalToggle";
 import { useSettings } from "../../../hooks/useSettings";
 import { KeyboardImplementationSelector } from "../debug/KeyboardImplementationSelector";
@@ -34,6 +35,7 @@ export const AdvancedSettings: React.FC = () => {
         <ShowTrayIcon descriptionMode="tooltip" grouped={true} />
         <ShowOverlay descriptionMode="tooltip" grouped={true} />
         <ModelUnloadTimeoutSetting descriptionMode="tooltip" grouped={true} />
+        <MaxRecordingDurationSelector descriptionMode="tooltip" grouped={true} />
         <ExperimentalToggle descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
 

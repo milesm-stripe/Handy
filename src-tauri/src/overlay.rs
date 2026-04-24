@@ -1,7 +1,14 @@
 use crate::input;
 use crate::settings;
 use crate::settings::OverlayPosition;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
+
+#[derive(Serialize, Clone)]
+struct OverlayPayload {
+    state: String,
+    max_duration_secs: Option<u64>,
+}
 
 #[cfg(not(target_os = "macos"))]
 use log::debug;
@@ -31,7 +38,7 @@ tauri_panel! {
     })
 }
 
-const OVERLAY_WIDTH: f64 = 172.0;
+const OVERLAY_WIDTH: f64 = 210.0;
 const OVERLAY_HEIGHT: f64 = 36.0;
 
 #[cfg(target_os = "macos")]
@@ -335,7 +342,11 @@ fn show_overlay_state(app_handle: &AppHandle, state: &str) {
         #[cfg(target_os = "windows")]
         force_overlay_topmost(&overlay_window);
 
-        let _ = overlay_window.emit("show-overlay", state);
+        let max_duration_secs = settings.max_recording_duration.to_seconds();
+        let _ = overlay_window.emit("show-overlay", OverlayPayload {
+            state: state.to_string(),
+            max_duration_secs,
+        });
     }
 }
 

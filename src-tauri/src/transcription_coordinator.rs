@@ -1,11 +1,12 @@
 use crate::actions::ACTION_MAP;
 use crate::managers::audio::AudioRecordingManager;
-use log::{debug, error, warn};
+use crate::settings::get_settings;
+use log::{debug, error, info, warn};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 
@@ -21,6 +22,10 @@ enum Command {
         recording_was_active: bool,
     },
     ProcessingFinished,
+    MaxDurationReached {
+        binding_id: String,
+        hotkey_string: String,
+    },
 }
 
 /// Pipeline lifecycle, owned exclusively by the coordinator thread.
@@ -44,11 +49,13 @@ pub fn is_transcribe_binding(id: &str) -> bool {
 impl TranscriptionCoordinator {
     pub fn new(app: AppHandle) -> Self {
         let (tx, rx) = mpsc::channel();
+        let tx_for_timer = tx.clone();
 
         thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
                 let mut last_press: Option<Instant> = None;
+                let mut duration_cancel: Option<Arc<std::sync::atomic::AtomicBool>> = None;
 
                 while let Ok(cmd) = rx.recv() {
                     match cmd {
@@ -72,17 +79,25 @@ impl TranscriptionCoordinator {
                             if push_to_talk {
                                 if is_pressed && matches!(stage, Stage::Idle) {
                                     start(&app, &mut stage, &binding_id, &hotkey_string);
+                                    duration_cancel = start_duration_timer(
+                                        &app, &tx_for_timer, &binding_id, &hotkey_string,
+                                    );
                                 } else if !is_pressed
                                     && matches!(&stage, Stage::Recording(id) if id == &binding_id)
                                 {
+                                    cancel_duration_timer(&mut duration_cancel);
                                     stop(&app, &mut stage, &binding_id, &hotkey_string);
                                 }
                             } else if is_pressed {
                                 match &stage {
                                     Stage::Idle => {
                                         start(&app, &mut stage, &binding_id, &hotkey_string);
+                                        duration_cancel = start_duration_timer(
+                                            &app, &tx_for_timer, &binding_id, &hotkey_string,
+                                        );
                                     }
                                     Stage::Recording(id) if id == &binding_id => {
+                                        cancel_duration_timer(&mut duration_cancel);
                                         stop(&app, &mut stage, &binding_id, &hotkey_string);
                                     }
                                     _ => {
@@ -94,6 +109,7 @@ impl TranscriptionCoordinator {
                         Command::Cancel {
                             recording_was_active,
                         } => {
+                            cancel_duration_timer(&mut duration_cancel);
                             // Don't reset during processing — wait for the pipeline to finish.
                             if !matches!(stage, Stage::Processing)
                                 && (recording_was_active || matches!(stage, Stage::Recording(_)))
@@ -103,6 +119,16 @@ impl TranscriptionCoordinator {
                         }
                         Command::ProcessingFinished => {
                             stage = Stage::Idle;
+                        }
+                        Command::MaxDurationReached {
+                            binding_id,
+                            hotkey_string,
+                        } => {
+                            if matches!(&stage, Stage::Recording(id) if id == &binding_id) {
+                                info!("Max recording duration reached, auto-stopping");
+                                let _ = app.emit("recording-duration-limit", ());
+                                stop(&app, &mut stage, &binding_id, &hotkey_string);
+                            }
                         }
                     }
                 }
@@ -181,4 +207,38 @@ fn stop(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &st
     };
     action.stop(app, binding_id, hotkey_string);
     *stage = Stage::Processing;
+}
+
+fn start_duration_timer(
+    app: &AppHandle,
+    tx: &Sender<Command>,
+    binding_id: &str,
+    hotkey_string: &str,
+) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+    let settings = get_settings(app);
+    let max_secs = settings.max_recording_duration.to_seconds()?;
+
+    let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let cancelled_clone = Arc::clone(&cancelled);
+    let tx = tx.clone();
+    let binding_id = binding_id.to_string();
+    let hotkey_string = hotkey_string.to_string();
+
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(max_secs));
+        if !cancelled_clone.load(std::sync::atomic::Ordering::Relaxed) {
+            let _ = tx.send(Command::MaxDurationReached {
+                binding_id,
+                hotkey_string,
+            });
+        }
+    });
+
+    Some(cancelled)
+}
+
+fn cancel_duration_timer(cancel: &mut Option<Arc<std::sync::atomic::AtomicBool>>) {
+    if let Some(flag) = cancel.take() {
+        flag.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }

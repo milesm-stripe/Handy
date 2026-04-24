@@ -165,6 +165,36 @@ pub enum RecordingRetentionPeriod {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
+pub enum MaxRecordingDuration {
+    Min1,
+    Min2,
+    Min5,
+    Min10,
+    Min30,
+    Unlimited,
+}
+
+impl Default for MaxRecordingDuration {
+    fn default() -> Self {
+        MaxRecordingDuration::Min5
+    }
+}
+
+impl MaxRecordingDuration {
+    pub fn to_seconds(self) -> Option<u64> {
+        match self {
+            MaxRecordingDuration::Min1 => Some(60),
+            MaxRecordingDuration::Min2 => Some(120),
+            MaxRecordingDuration::Min5 => Some(300),
+            MaxRecordingDuration::Min10 => Some(600),
+            MaxRecordingDuration::Min30 => Some(1800),
+            MaxRecordingDuration::Unlimited => None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
+#[serde(rename_all = "snake_case")]
 pub enum KeyboardImplementation {
     Tauri,
     HandyKeys,
@@ -430,6 +460,8 @@ pub struct AppSettings {
     pub whisper_gpu_device: i32,
     #[serde(default)]
     pub extra_recording_buffer_ms: u64,
+    #[serde(default)]
+    pub max_recording_duration: MaxRecordingDuration,
 }
 
 fn default_model() -> String {
@@ -824,6 +856,7 @@ pub fn get_default_settings() -> AppSettings {
         ort_accelerator: OrtAcceleratorSetting::default(),
         whisper_gpu_device: default_whisper_gpu_device(),
         extra_recording_buffer_ms: 0,
+        max_recording_duration: MaxRecordingDuration::default(),
     }
 }
 

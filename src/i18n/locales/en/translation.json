@@ -491,6 +491,16 @@
         "label": "Append Trailing Space",
         "description": "Add a space after pasted transcription"
       },
+      "maxRecordingDuration": {
+        "title": "Max Recording Duration",
+        "description": "Automatically stop recording after this duration. Long recordings are transcribed in chunks.",
+        "min1": "1 minute",
+        "min2": "2 minutes",
+        "min5": "5 minutes",
+        "min10": "10 minutes",
+        "min30": "30 minutes",
+        "unlimited": "Unlimited"
+      },
       "keyboardImplementation": {
         "title": "Keyboard Implementation",
         "description": "Choose the keyboard shortcut backend.",
@@ -599,6 +609,10 @@
     "recordingFailed": "Failed to start recording: {{error}}",
     "modelLoadFailed": "Failed to load model: {{model}}",
     "modelLoadFailedUnknown": "unknown model",
+    "transcriptionFailedTitle": "Transcription Failed",
+    "transcriptionFailed": "Audio was saved to history — you can retry from there.",
+    "recordingDurationLimitTitle": "Recording Limit Reached",
+    "recordingDurationLimit": "Maximum recording duration reached — transcribing now.",
     "pasteFailedTitle": "Failed to Paste Text",
     "pasteFailed": "Text could not be pasted into the active application."
   },

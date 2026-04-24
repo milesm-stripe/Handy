@@ -111,11 +111,27 @@ function App() {
         toast.error(t("errors.noInputDeviceTitle"), {
           description: t("errors.noInputDevice"),
         });
+      } else if (error_type === "transcription_failed") {
+        toast.error(t("errors.transcriptionFailedTitle"), {
+          description: t("errors.transcriptionFailed"),
+        });
       } else {
         toast.error(
           t("errors.recordingFailed", { error: detail ?? "Unknown error" }),
         );
       }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [t]);
+
+  // Listen for max recording duration reached
+  useEffect(() => {
+    const unlisten = listen("recording-duration-limit", () => {
+      toast.info(t("errors.recordingDurationLimitTitle"), {
+        description: t("errors.recordingDurationLimit"),
+      });
     });
     return () => {
       unlisten.then((fn) => fn());

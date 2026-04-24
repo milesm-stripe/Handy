@@ -671,6 +671,30 @@ pub fn change_extra_recording_buffer_setting(app: AppHandle, ms: u64) -> Result<
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_max_recording_duration_setting(
+    app: AppHandle,
+    duration: String,
+) -> Result<(), String> {
+    use settings::MaxRecordingDuration;
+
+    let max_duration = match duration.as_str() {
+        "min1" => MaxRecordingDuration::Min1,
+        "min2" => MaxRecordingDuration::Min2,
+        "min5" => MaxRecordingDuration::Min5,
+        "min10" => MaxRecordingDuration::Min10,
+        "min30" => MaxRecordingDuration::Min30,
+        "unlimited" => MaxRecordingDuration::Unlimited,
+        _ => return Err(format!("Invalid max recording duration: {}", duration)),
+    };
+
+    let mut settings = settings::get_settings(&app);
+    settings.max_recording_duration = max_duration;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_paste_delay_ms_setting(app: AppHandle, ms: u64) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.paste_delay_ms = ms;

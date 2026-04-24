@@ -13,22 +13,63 @@ import { getLanguageDirection } from "@/lib/utils/rtl";
 
 type OverlayState = "recording" | "transcribing" | "processing";
 
+interface OverlayPayload {
+  state: OverlayState;
+  max_duration_secs: number | null;
+}
+
+const formatDuration = (seconds: number): string => {
+  const m = Math.floor(Math.abs(seconds) / 60);
+  const s = Math.abs(seconds) % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
 const RecordingOverlay: React.FC = () => {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [state, setState] = useState<OverlayState>("recording");
   const [levels, setLevels] = useState<number[]>(Array(16).fill(0));
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [maxDurationSecs, setMaxDurationSecs] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const direction = getLanguageDirection(i18n.language);
+
+  useEffect(() => {
+    if (isVisible && state === "recording") {
+      if (maxDurationSecs != null) {
+        setElapsedSeconds(maxDurationSecs);
+        timerRef.current = setInterval(() => {
+          setElapsedSeconds((prev) => Math.max(0, prev - 1));
+        }, 1000);
+      } else {
+        setElapsedSeconds(0);
+        timerRef.current = setInterval(() => {
+          setElapsedSeconds((prev) => prev + 1);
+        }, 1000);
+      }
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isVisible, state, maxDurationSecs]);
 
   useEffect(() => {
     const setupEventListeners = async () => {
       // Listen for show-overlay event from Rust
       const unlistenShow = await listen("show-overlay", async (event) => {
-        // Sync language from settings each time overlay is shown
         await syncLanguageFromSettings();
-        const overlayState = event.payload as OverlayState;
-        setState(overlayState);
+        const payload = event.payload as OverlayPayload;
+        setState(payload.state);
+        setMaxDurationSecs(payload.max_duration_secs);
         setIsVisible(true);
       });
 
@@ -79,19 +120,22 @@ const RecordingOverlay: React.FC = () => {
 
       <div className="overlay-middle">
         {state === "recording" && (
-          <div className="bars-container">
-            {levels.map((v, i) => (
-              <div
-                key={i}
-                className="bar"
-                style={{
-                  height: `${Math.min(20, 4 + Math.pow(v, 0.7) * 16)}px`, // Cap at 20px max height
-                  transition: "height 60ms ease-out, opacity 120ms ease-out",
-                  opacity: Math.max(0.2, v * 1.7), // Minimum opacity for visibility
-                }}
-              />
-            ))}
-          </div>
+          <>
+            <div className="bars-container">
+              {levels.map((v, i) => (
+                <div
+                  key={i}
+                  className="bar"
+                  style={{
+                    height: `${Math.min(20, 4 + Math.pow(v, 0.7) * 16)}px`, // Cap at 20px max height
+                    transition: "height 60ms ease-out, opacity 120ms ease-out",
+                    opacity: Math.max(0.2, v * 1.7), // Minimum opacity for visibility
+                  }}
+                />
+              ))}
+            </div>
+            <div className="duration-timer">{formatDuration(elapsedSeconds)}</div>
+          </>
         )}
         {state === "transcribing" && (
           <div className="transcribing-text">{t("overlay.transcribing")}</div>
