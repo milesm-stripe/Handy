@@ -126,6 +126,14 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
         None::<&str>,
     )
     .expect("failed to create check updates item");
+    let start_transcript_i = MenuItem::with_id(
+        app,
+        "start_transcript",
+        &strings.start_transcript,
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create start transcript item");
     let copy_last_transcript_i = MenuItem::with_id(
         app,
         "copy_last_transcript",
@@ -220,7 +228,36 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
     };
 
     let menu = match state {
-        TrayIconState::Recording | TrayIconState::Transcribing => {
+        TrayIconState::Recording => {
+            let stop_transcript_i = MenuItem::with_id(
+                app,
+                "stop_transcript",
+                &strings.stop_transcript,
+                true,
+                None::<&str>,
+            )
+            .expect("failed to create stop transcript item");
+            let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
+                .expect("failed to create cancel item");
+            Menu::with_items(
+                app,
+                &[
+                    &version_i,
+                    &separator(),
+                    &stop_transcript_i,
+                    &cancel_i,
+                    &separator(),
+                    &copy_last_transcript_i,
+                    &separator(),
+                    &settings_i,
+                    &check_updates_i,
+                    &separator(),
+                    &quit_i,
+                ],
+            )
+            .expect("failed to create menu")
+        }
+        TrayIconState::Transcribing => {
             let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
                 .expect("failed to create cancel item");
             Menu::with_items(
@@ -244,6 +281,8 @@ pub fn update_tray_menu(app: &AppHandle, state: &TrayIconState, locale: Option<&
             app,
             &[
                 &version_i,
+                &separator(),
+                &start_transcript_i,
                 &separator(),
                 &copy_last_transcript_i,
                 &separator(),

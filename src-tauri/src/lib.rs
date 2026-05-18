@@ -215,6 +215,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     let _ = app.emit("check-for-updates", ());
                 }
             }
+            "start_transcript" | "stop_transcript" => {
+                signal_handle::send_transcription_input(app, "transcribe", "tray");
+            }
             "copy_last_transcript" => {
                 tray::copy_last_transcript(app);
             }
@@ -293,10 +296,24 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         tray::set_tray_visibility(app_handle, false);
     }
 
-    // Refresh tray menu when model state changes
+    // Refresh tray menu when model state settles (loaded, failed, or unloaded).
+    // Skip "loading_started" — it fires before the recording state is set,
+    // which would race with change_tray_icon(Recording) and reset the menu.
     let app_handle_for_listener = app_handle.clone();
-    app_handle.listen("model-state-changed", move |_| {
-        tray::update_tray_menu(&app_handle_for_listener, &tray::TrayIconState::Idle, None);
+    app_handle.listen("model-state-changed", move |event| {
+        let skip = serde_json::from_str::<serde_json::Value>(event.payload())
+            .ok()
+            .and_then(|v| v.get("event_type").and_then(|t| t.as_str()).map(|t| t == "loading_started"))
+            .unwrap_or(false);
+        if skip {
+            return;
+        }
+        let is_recording = app_handle_for_listener
+            .try_state::<Arc<AudioRecordingManager>>()
+            .map_or(false, |rm| rm.is_recording());
+        if !is_recording {
+            tray::update_tray_menu(&app_handle_for_listener, &tray::TrayIconState::Idle, None);
+        }
     });
 
     // Get the autostart manager and configure based on user setting

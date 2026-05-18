@@ -1,5 +1,7 @@
 {
   "tray": {
+    "startTranscript": "Start Transcript",
+    "stopTranscript": "Stop Transcript",
     "settings": "Settings...",
     "checkUpdates": "Check for Updates...",
     "copyLastTranscript": "Copy Last Transcript",
